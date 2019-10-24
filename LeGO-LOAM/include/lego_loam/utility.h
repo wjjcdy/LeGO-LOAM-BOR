@@ -41,9 +41,9 @@
 #include <thread>
 #include <mutex>
 
-typedef pcl::PointXYZI  PointType;
+typedef pcl::PointXYZI  PointType;   // 点云类型
 
-typedef Eigen::Vector3f Vector3;
+typedef Eigen::Vector3f Vector3;     // 向量
 
 const double DEG_TO_RAD = M_PI / 180.0;
 
@@ -82,7 +82,7 @@ struct RollPitchYaw{
   RollPitchYaw():roll(0),pitch(0),yaw(0) {}
 };
 
-struct Transform
+struct Transform                   // 3维坐标， 3个航向
 {
   Transform():pos(Vector3::Zero()) {}
   Vector3 pos;
@@ -93,7 +93,7 @@ inline void OdometryToTransform(const nav_msgs::Odometry& odometry,
                                 float* transform) {
   double roll, pitch, yaw;
   geometry_msgs::Quaternion geoQuat = odometry.pose.pose.orientation;
-  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w))
+  tf::Matrix3x3(tf::Quaternion(geoQuat.z, -geoQuat.x, -geoQuat.y, geoQuat.w))  // 四元素转换
       .getRPY(roll, pitch, yaw);
 
   transform[0] = -pitch;

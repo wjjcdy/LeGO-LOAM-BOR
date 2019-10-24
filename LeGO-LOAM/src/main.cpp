@@ -34,17 +34,17 @@ int main(int argc, char** argv) {
     }
   }
 
-  Channel<ProjectionOut> projection_out_channel(true);
+  Channel<ProjectionOut> projection_out_channel(true);            //线程传输管道
   Channel<AssociationOut> association_out_channel(use_rosbag);
 
-  ImageProjection IP(nh, projection_out_channel);
+  ImageProjection IP(nh, projection_out_channel);                 //图像处理线程
 
-  FeatureAssociation FA(nh, projection_out_channel,
+  FeatureAssociation FA(nh, projection_out_channel,               //特征融合线程
                         association_out_channel);
 
-  MapOptimization MO(nh, association_out_channel);
+  MapOptimization MO(nh, association_out_channel);                //图优化线程
 
-  TransformFusion TF(nh);
+  TransformFusion TF(nh);                                         //坐标转换线程
 
   ROS_INFO("\033[1;32m---->\033[0m LeGO-LOAM Started.");
 

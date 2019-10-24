@@ -34,7 +34,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
     : _nh(nh),
       _output_channel(output_channel)
 {
-  _sub_laser_cloud = nh.subscribe<sensor_msgs::PointCloud2>(
+  _sub_laser_cloud = nh.subscribe<sensor_msgs::PointCloud2>(         //接收激光topic
       "/lidar_points", 1, &ImageProjection::cloudHandler, this);
 
   _pub_full_cloud =
@@ -57,13 +57,14 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
   float vertical_angle_top;
   nh.getParam("/lego_loam/laser/vertical_angle_top", vertical_angle_top);
 
+  // 雷达的属性，包括水平和垂直角度分辨率、垂直方向起始角度
   _ang_resolution_X = (M_PI*2) / (_horizontal_scans);
   _ang_resolution_Y = DEG_TO_RAD*(vertical_angle_top - _ang_bottom) / float(_vertical_scans-1);
   _ang_bottom = -( _ang_bottom - 0.1) * DEG_TO_RAD;
   _segment_alpha_X = _ang_resolution_X;
   _segment_alpha_Y = _ang_resolution_Y;
 
-  nh.getParam("/lego_loam/imageProjection/segment_theta", _segment_theta);
+  nh.getParam("/lego_loam/imageProjection/segment_theta", _segment_theta);   // 分割的角度
   _segment_theta *= DEG_TO_RAD;
 
   nh.getParam("/lego_loam/imageProjection/segment_valid_point_num",
@@ -78,7 +79,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
               _sensor_mount_angle);
   _sensor_mount_angle *= DEG_TO_RAD;
 
-  const size_t cloud_size = _vertical_scans * _horizontal_scans;
+  const size_t cloud_size = _vertical_scans * _horizontal_scans;      // 激光点云总个数
 
   _laser_cloud_in.reset(new pcl::PointCloud<PointType>());
   _full_cloud.reset(new pcl::PointCloud<PointType>());
