@@ -81,7 +81,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
 
   const size_t cloud_size = _vertical_scans * _horizontal_scans;      // 激光点云总个数
 
-  _laser_cloud_in.reset(new pcl::PointCloud<PointType>());
+  _laser_cloud_in.reset(new pcl::PointCloud<PointType>());            // 实例化所有点云
   _full_cloud.reset(new pcl::PointCloud<PointType>());
   _full_info_cloud.reset(new pcl::PointCloud<PointType>());
 
@@ -130,6 +130,7 @@ void ImageProjection::resetParameters() {
   _seg_msg.segmentedCloudRange.assign(cloud_size, 0);
 }
 
+// 接收激光点云处理回调
 void ImageProjection::cloudHandler(
     const sensor_msgs::PointCloud2ConstPtr& laserCloudMsg) {
   // Reset parameters

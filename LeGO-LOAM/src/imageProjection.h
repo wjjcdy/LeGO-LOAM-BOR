@@ -24,6 +24,7 @@ class ImageProjection {
   void labelComponents(int row, int col);
   void publishClouds();
 
+  // 点云定义
   pcl::PointCloud<PointType>::Ptr _laser_cloud_in;
 
   pcl::PointCloud<PointType>::Ptr _full_cloud;
@@ -48,8 +49,10 @@ class ImageProjection {
   int _ground_scan_index;
   float _sensor_mount_angle;
 
+  // 管道定义
   Channel<ProjectionOut>& _output_channel;
-
+  
+  // topic 方法定义
   ros::Subscriber _sub_laser_cloud;
 
   ros::Publisher _pub_full_cloud;
