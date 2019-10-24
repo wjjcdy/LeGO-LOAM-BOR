@@ -49,12 +49,12 @@ int main(int argc, char** argv) {
   ROS_INFO("\033[1;32m---->\033[0m LeGO-LOAM Started.");
 
   if( !use_rosbag ){
-    ROS_INFO("SPINNER");
-    ros::MultiThreadedSpinner spinner(4);  // Use 4 threads
+    ROS_WARN("SPINNER");
+    ros::MultiThreadedSpinner spinner(4);  // Use 4 threads， 采用4个线程spin用于处理callback
     spinner.spin();
   }
   else{
-    ROS_INFO("ROSBAG");
+    ROS_WARN("ROSBAG");
     std::vector<std::string> topics;
     topics.push_back(imu_topic);
     topics.push_back(lidar_topic);

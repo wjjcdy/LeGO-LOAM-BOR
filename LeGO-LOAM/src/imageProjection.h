@@ -64,7 +64,7 @@ class ImageProjection {
   ros::Publisher _pub_segmented_cloud_info;
   ros::Publisher _pub_outlier_cloud;
 
-  cloud_msgs::cloud_info _seg_msg;
+  cloud_msgs::cloud_info _seg_msg;    // 自定义的message
 
   int _label_count;
 

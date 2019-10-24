@@ -34,7 +34,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
     : _nh(nh),
       _output_channel(output_channel)
 {
-  _sub_laser_cloud = nh.subscribe<sensor_msgs::PointCloud2>(         //接收激光topic
+  _sub_laser_cloud = nh.subscribe<sensor_msgs::PointCloud2>(         //接收激光topic，topic可映射
       "/lidar_points", 1, &ImageProjection::cloudHandler, this);
 
   _pub_full_cloud =
@@ -60,7 +60,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
   // 雷达的属性，包括水平和垂直角度分辨率、垂直方向起始角度
   _ang_resolution_X = (M_PI*2) / (_horizontal_scans);
   _ang_resolution_Y = DEG_TO_RAD*(vertical_angle_top - _ang_bottom) / float(_vertical_scans-1);
-  _ang_bottom = -( _ang_bottom - 0.1) * DEG_TO_RAD;
+  _ang_bottom = -( _ang_bottom - 0.1) * DEG_TO_RAD;                          // 垂直方向上起始角度
   _segment_alpha_X = _ang_resolution_X;
   _segment_alpha_Y = _ang_resolution_Y;
 
@@ -98,7 +98,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
 void ImageProjection::resetParameters() {
   const size_t cloud_size = _vertical_scans * _horizontal_scans;
   PointType nanPoint;
-  nanPoint.x = std::numeric_limits<float>::quiet_NaN();
+  nanPoint.x = std::numeric_limits<float>::quiet_NaN();  //应该是等于NAN
   nanPoint.y = std::numeric_limits<float>::quiet_NaN();
   nanPoint.z = std::numeric_limits<float>::quiet_NaN();
 
@@ -108,12 +108,12 @@ void ImageProjection::resetParameters() {
   _segmented_cloud_pure->clear();
   _outlier_cloud->clear();
 
-  _range_mat.resize(_vertical_scans, _horizontal_scans);
+  _range_mat.resize(_vertical_scans, _horizontal_scans);   //定义激光点的个数，用于存储距离
   _ground_mat.resize(_vertical_scans, _horizontal_scans);
   _label_mat.resize(_vertical_scans, _horizontal_scans);
 
-  _range_mat.fill(FLT_MAX);
-  _ground_mat.setZero();
+  _range_mat.fill(FLT_MAX);                                // 全部初始化最大值
+  _ground_mat.setZero();                                   // 初始化为0
   _label_mat.setZero();
 
   _label_count = 1;
@@ -122,8 +122,8 @@ void ImageProjection::resetParameters() {
   std::fill(_full_info_cloud->points.begin(), _full_info_cloud->points.end(),
             nanPoint);
 
-  _seg_msg.startRingIndex.assign(_vertical_scans, 0);
-  _seg_msg.endRingIndex.assign(_vertical_scans, 0);
+  _seg_msg.startRingIndex.assign(_vertical_scans, 0);  // 16线起始索引均初始化为0， 采用容器的方式， 第一参数表明size， 第二参数表明 value
+  _seg_msg.endRingIndex.assign(_vertical_scans, 0);  // 同上
 
   _seg_msg.segmentedCloudGroundFlag.assign(cloud_size, false);
   _seg_msg.segmentedCloudColInd.assign(cloud_size, 0);
@@ -137,13 +137,14 @@ void ImageProjection::cloudHandler(
   resetParameters();
 
   // Copy and remove NAN points
-  pcl::fromROSMsg(*laserCloudMsg, *_laser_cloud_in);
+  pcl::fromROSMsg(*laserCloudMsg, *_laser_cloud_in);            // ros message 转换为 pcl point
   std::vector<int> indices;
-  pcl::removeNaNFromPointCloud(*_laser_cloud_in, *_laser_cloud_in, indices);
+  pcl::removeNaNFromPointCloud(*_laser_cloud_in, *_laser_cloud_in, indices);  // 剔除非正常数
   _seg_msg.header = laserCloudMsg->header;
 
+  // 具体功能还未理解
   findStartEndAngle();
-  // Range image projection
+  // Range image projection  ， 将无序点云，变为有序点云进行存储，包括水平和垂直索引号
   projectPointCloud();
   // Mark ground points
   groundRemoval();
@@ -161,22 +162,22 @@ void ImageProjection::projectPointCloud() {
   for (size_t i = 0; i < cloudSize; ++i) {
     PointType thisPoint = _laser_cloud_in->points[i];
 
-    float range = sqrt(thisPoint.x * thisPoint.x +
+    float range = sqrt(thisPoint.x * thisPoint.x +                     // 反推点的距离
                        thisPoint.y * thisPoint.y +
                        thisPoint.z * thisPoint.z);
 
-    // find the row and column index in the image for this point
-    float verticalAngle = std::asin(thisPoint.z / range);
+    // find the row and column index in the image for this point       
+    float verticalAngle = std::asin(thisPoint.z / range);              // 获取z轴的角度，用于获取在16线中的哪一索引
         //std::atan2(thisPoint.z, sqrt(thisPoint.x * thisPoint.x + thisPoint.y * thisPoint.y));
 
-    int rowIdn = (verticalAngle + _ang_bottom) / _ang_resolution_Y;
+    int rowIdn = (verticalAngle + _ang_bottom) / _ang_resolution_Y;    // 获取 扫描线中的索引号，因为前面_ang_bottom取过反，故采用加法(??不知前方为何取反)
     if (rowIdn < 0 || rowIdn >= _vertical_scans) {
       continue;
     }
 
-    float horizonAngle = std::atan2(thisPoint.x, thisPoint.y);
+    float horizonAngle = std::atan2(thisPoint.x, thisPoint.y);         // x/y ，范围为-PI～ PI， pi/2 表明为x轴方向
 
-    int columnIdn = -round((horizonAngle - M_PI_2) / _ang_resolution_X) + _horizontal_scans * 0.5;
+    int columnIdn = -round((horizonAngle - M_PI_2) / _ang_resolution_X) + _horizontal_scans * 0.5;   //  ??? 不知道为什么这么绕。 表明x轴方向为中间索引号
 
     if (columnIdn >= _horizontal_scans){
       columnIdn -= _horizontal_scans;
@@ -186,36 +187,37 @@ void ImageProjection::projectPointCloud() {
       continue;
     }
 
-    if (range < 0.1){
+    if (range < 0.1){                                                  // 距离过小忽略
       continue;
     }
 
-    _range_mat(rowIdn, columnIdn) = range;
+    _range_mat(rowIdn, columnIdn) = range;                            // 矩阵中填充距离信息，如此可提取16线中每条线的数据，每条线按顺序存储，可当做单线雷达
 
-    thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0;
+    thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0; // 强度根据不同层则不一样，可用于显示区分
 
-    size_t index = columnIdn + rowIdn * _horizontal_scans;
-    _full_cloud->points[index] = thisPoint;
+    size_t index = columnIdn + rowIdn * _horizontal_scans;            // 索引号
+    _full_cloud->points[index] = thisPoint;                           // 存入两个点云中，点云数据包含每个点的在16线的信息
     // the corresponding range of a point is saved as "intensity"
     _full_info_cloud->points[index] = thisPoint;
-    _full_info_cloud->points[index].intensity = range;
+    _full_info_cloud->points[index].intensity = range;                // 强度信息是距离信息
   }
 }
 
+// 查找整个点云数据起始角度和终止角度
 void ImageProjection::findStartEndAngle() {
   // start and end orientation of this cloud
   auto point = _laser_cloud_in->points.front();
-  _seg_msg.startOrientation = -std::atan2(point.y, point.x);
+  _seg_msg.startOrientation = -std::atan2(point.y, point.x);                // ??? 起始角度
 
   point = _laser_cloud_in->points.back();
-  _seg_msg.endOrientation = -std::atan2(point.y, point.x) + 2 * M_PI;
+  _seg_msg.endOrientation = -std::atan2(point.y, point.x) + 2 * M_PI;       // ??? 终止角度 + 360 
 
-  if (_seg_msg.endOrientation - _seg_msg.startOrientation > 3 * M_PI) {
+  if (_seg_msg.endOrientation - _seg_msg.startOrientation > 3 * M_PI) {     // 起始角度和终止角度 放在0~360之间
     _seg_msg.endOrientation -= 2 * M_PI;
   } else if (_seg_msg.endOrientation - _seg_msg.startOrientation < M_PI) {
     _seg_msg.endOrientation += 2 * M_PI;
   }
-  _seg_msg.orientationDiff =
+  _seg_msg.orientationDiff =                                                 // 终止与起始角度差
       _seg_msg.endOrientation - _seg_msg.startOrientation;
 }
 
@@ -225,14 +227,14 @@ void ImageProjection::groundRemoval() {
   //  0, initial value, after validation, means not ground
   //  1, ground
   for (size_t j = 0; j < _horizontal_scans; ++j) {
-    for (size_t i = 0; i < _ground_scan_index; ++i) {
+    for (size_t i = 0; i < _ground_scan_index; ++i) {           // 仅遍历_ground_scan_index
       size_t lowerInd = j + (i)*_horizontal_scans;
       size_t upperInd = j + (i + 1) * _horizontal_scans;
 
-      if (_full_cloud->points[lowerInd].intensity == -1 ||
+      if (_full_cloud->points[lowerInd].intensity == -1 ||      // 垂直方向上相邻的两个点有一个存在无效值，？？？？？？？？没看到哪里赋值为无效值
           _full_cloud->points[upperInd].intensity == -1) {
         // no info to check, invalid points
-        _ground_mat(i, j) = -1;
+        _ground_mat(i, j) = -1;                                 // 表明此点无法判断
         continue;
       }
 

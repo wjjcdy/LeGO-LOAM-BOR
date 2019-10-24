@@ -4,8 +4,8 @@ lego_loam:
     laser:
         num_vertical_scans: 16              # 16线
         num_horizontal_scans: 1800          # 水平扫描点数，即1度5个点
-        ground_scan_index: 7
-        vertical_angle_bottom: -15          # degrees
+        ground_scan_index: 7                # 地面判断最高的垂直索引号，即以上无需判断是否为地面信息
+        vertical_angle_bottom: -15          # degrees，垂直方向起始角度
         vertical_angle_top: 15              # degrees
         sensor_mount_angle: 0               # degrees
         scan_period: 0.1                    # seconds
