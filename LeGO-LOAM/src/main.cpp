@@ -37,9 +37,9 @@ int main(int argc, char** argv) {
   Channel<ProjectionOut> projection_out_channel(true);            //线程传输管道
   Channel<AssociationOut> association_out_channel(use_rosbag);
 
-  ImageProjection IP(nh, projection_out_channel);                 //图像处理线程
+  ImageProjection IP(nh, projection_out_channel);                 //图像处理线程，接受lidar ，输出的分类结果供给特征融合
 
-  FeatureAssociation FA(nh, projection_out_channel,               //特征融合线程
+  FeatureAssociation FA(nh, projection_out_channel,               //特征融合线程，输入为分类后的点云
                         association_out_channel);
 
   MapOptimization MO(nh, association_out_channel);                //图优化线程

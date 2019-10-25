@@ -45,6 +45,7 @@ FeatureAssociation::FeatureAssociation(ros::NodeHandle &node,
       _input_channel(input_channel),
       _output_channel(output_channel) {
 
+  // 全部为发出，接收的数据，以管道在input_channel接收
   pubCornerPointsSharp =
       nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_sharp", 1);
   pubCornerPointsLessSharp =
@@ -64,10 +65,12 @@ FeatureAssociation::FeatureAssociation(ros::NodeHandle &node,
 
   _cycle_count = 0;
 
+  // 雷达相关参数
   nh.getParam("/lego_loam/laser/num_vertical_scans", _vertical_scans);
   nh.getParam("/lego_loam/laser/num_horizontal_scans", _horizontal_scans);
   nh.getParam("/lego_loam/laser/scan_period", _scan_period);
 
+  // 一些阈值参数
   nh.getParam("/lego_loam/featureAssociation/edge_threshold", _edge_threshold);
   nh.getParam("/lego_loam/featureAssociation/surf_threshold", _surf_threshold);
 
@@ -79,6 +82,7 @@ FeatureAssociation::FeatureAssociation(ros::NodeHandle &node,
 
   initializationValue();
 
+ //开辟一个线程用于循环处理，因为无topic callback
  _run_thread = std::thread (&FeatureAssociation::runFeatureAssociation, this);
 }
 
