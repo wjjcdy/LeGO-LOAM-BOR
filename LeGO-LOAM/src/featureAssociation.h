@@ -40,6 +40,7 @@ class FeatureAssociation {
   ros::Publisher pubSurfPointsFlat;
   ros::Publisher pubSurfPointsLessFlat;
 
+  // 点云定义变量
   pcl::PointCloud<PointType>::Ptr segmentedCloud;
   pcl::PointCloud<PointType>::Ptr outlierCloud;
 
@@ -50,17 +51,20 @@ class FeatureAssociation {
 
   pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScan;
   pcl::PointCloud<PointType>::Ptr surfPointsLessFlatScanDS;
-
+  
+  // 奖采样
   pcl::VoxelGrid<PointType> downSizeFilter;
 
   double timeScanCur;
 
+  // 自定义点云类型
   cloud_msgs::cloud_info segInfo;
   std_msgs::Header cloudHeader;
 
   int systemInitCount;
   bool systemInited;
 
+  //
   std::vector<smoothness_t> cloudSmoothness;
   std::vector<float> cloudCurvature;
   std::vector<int> cloudNeighborPicked;
@@ -86,16 +90,17 @@ class FeatureAssociation {
   std::vector<float> pointSearchSurfInd2;
   std::vector<float> pointSearchSurfInd3;
 
-  float transformCur[6];
-  float transformSum[6];
+  float transformCur[6];   
+  float transformSum[6];   // 基于世界坐标系即（初始0坐标系）下，累计下来当前的位姿
 
   pcl::PointCloud<PointType>::Ptr laserCloudCornerLast;
   pcl::PointCloud<PointType>::Ptr laserCloudSurfLast;
   pcl::PointCloud<PointType>::Ptr laserCloudOri;
   pcl::PointCloud<PointType>::Ptr coeffSel;
-
-  nanoflann::KdTreeFLANN<PointType> kdtreeCornerLast;
-  nanoflann::KdTreeFLANN<PointType> kdtreeSurfLast;
+  
+  // KDtree 数据定义
+  nanoflann::KdTreeFLANN<PointType> kdtreeCornerLast;     // 角点的KDTREE
+  nanoflann::KdTreeFLANN<PointType> kdtreeSurfLast;       // 平坦点云的KDTREE  pcl::KdTreeFLANN<PointType>::Ptr kdtreeCornerLast;
 
   std::vector<int> pointSearchInd;
   std::vector<float> pointSearchSqDis;

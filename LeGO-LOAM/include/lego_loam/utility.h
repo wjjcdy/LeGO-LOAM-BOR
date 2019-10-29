@@ -47,7 +47,7 @@ typedef Eigen::Vector3f Vector3;     // 向量
 
 const double DEG_TO_RAD = M_PI / 180.0;
 
-
+// 平滑数据类型
 struct smoothness_t{ 
     float value;
     size_t ind;
