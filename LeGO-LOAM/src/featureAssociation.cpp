@@ -385,7 +385,7 @@ void FeatureAssociation::TransformToStart(PointType const *const pi,
                                           PointType *const po) {
   float s = 10 * (pi->intensity - int(pi->intensity));       // 由于强度为thisPoint.intensity = (float)rowIdn + (float)columnIdn / 10000.0; // 强度根据不同层则不一样，可用于显示区分
 
-  float rx = s * transformCur[0];
+  float rx = s * transformCur[0];                            // s 为阻尼
   float ry = s * transformCur[1];
   float rz = s * transformCur[2];
   float tx = s * transformCur[3];
@@ -1157,7 +1157,7 @@ void FeatureAssociation::updateTransformation() {
 }
 
 // 矩阵转换，根据变换的矩阵， 更新全局位姿
-// 
+// 先旋转， 在平移
 void FeatureAssociation::integrateTransformation() {
   float rx, ry, rz, tx, ty, tz;
   AccumulateRotation(transformSum[0], transformSum[1], transformSum[2],
@@ -1174,7 +1174,7 @@ void FeatureAssociation::integrateTransformation() {
   float y2 = cos(rx) * y1 - sin(rx) * z1;
   float z2 = sin(rx) * y1 + cos(rx) * z1;
 
-  tx = transformSum[3] - (cos(ry) * x2 + sin(ry) * z2);
+  tx = transformSum[3] - (cos(ry) * x2 + sin(ry) * z2);   
   ty = transformSum[4] - y2;
   tz = transformSum[5] - (-sin(ry) * x2 + cos(ry) * z2);
 
