@@ -1200,7 +1200,7 @@ void FeatureAssociation::adjustOutlierCloud() {
 
 // 里程计发布
 void FeatureAssociation::publishOdometry() {
-  geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(
+  geometry_msgs::Quaternion geoQuat = tf::createQuaternionMsgFromRollPitchYaw(    // 旋转量转换为4元数
       transformSum[2], -transformSum[0], -transformSum[1]);
 
   laserOdometry.header.stamp = cloudHeader.stamp;
@@ -1213,7 +1213,7 @@ void FeatureAssociation::publishOdometry() {
   laserOdometry.pose.pose.position.z = transformSum[5];
   pubLaserOdometry.publish(laserOdometry);
 
-  laserOdometryTrans.stamp_ = cloudHeader.stamp;
+  laserOdometryTrans.stamp_ = cloudHeader.stamp;                                  // 全局里程计tf变换
   laserOdometryTrans.setRotation(
       tf::Quaternion(-geoQuat.y, -geoQuat.z, geoQuat.x, geoQuat.w));
   laserOdometryTrans.setOrigin(
