@@ -82,17 +82,20 @@ class MapOptimization {
   tf::StampedTransform aftMappedTrans;
   tf::TransformBroadcaster tfBroadcaster;
 
+  // 历史每一帧帧数据
   std::vector<pcl::PointCloud<PointType>::Ptr> cornerCloudKeyFrames;
   std::vector<pcl::PointCloud<PointType>::Ptr> surfCloudKeyFrames;
   std::vector<pcl::PointCloud<PointType>::Ptr> outlierCloudKeyFrames;
 
+  // 构建submap的当前位置前固定个数的点云（用于闭环），最后形成一个点云
   std::deque<pcl::PointCloud<PointType>::Ptr> recentCornerCloudKeyFrames;
   std::deque<pcl::PointCloud<PointType>::Ptr> recentSurfCloudKeyFrames;
   std::deque<pcl::PointCloud<PointType>::Ptr> recentOutlierCloudKeyFrames;
   int latestFrameID;
 
-  std::vector<int> surroundingExistingKeyPosesID;
-  std::deque<pcl::PointCloud<PointType>::Ptr> surroundingCornerCloudKeyFrames;
+  // 构建submap的location id ， 对应的点云 （用于非闭环），最后形成一个点云
+  std::vector<int> surroundingExistingKeyPosesID;                                 // 当前位置附近搜索范围内所有 历史位置的id
+  std::deque<pcl::PointCloud<PointType>::Ptr> surroundingCornerCloudKeyFrames;    // 对应历史ID 所有特征点云集合
   std::deque<pcl::PointCloud<PointType>::Ptr> surroundingSurfCloudKeyFrames;
   std::deque<pcl::PointCloud<PointType>::Ptr> surroundingOutlierCloudKeyFrames;
 
@@ -102,8 +105,9 @@ class MapOptimization {
   pcl::PointCloud<PointType>::Ptr cloudKeyPoses3D;
   pcl::PointCloud<PointTypePose>::Ptr cloudKeyPoses6D;
 
-  pcl::PointCloud<PointType>::Ptr surroundingKeyPoses;
-  pcl::PointCloud<PointType>::Ptr surroundingKeyPosesDS;
+  // submap
+  pcl::PointCloud<PointType>::Ptr surroundingKeyPoses;        // 当前帧位置附近50m内 位置的帧的集合
+  pcl::PointCloud<PointType>::Ptr surroundingKeyPosesDS;      // 降采样后的点云
 
   pcl::PointCloud<PointType>::Ptr
       laserCloudCornerLast;  // corner feature set from odoOptimization
@@ -130,9 +134,10 @@ class MapOptimization {
   pcl::PointCloud<PointType>::Ptr laserCloudOri;
   pcl::PointCloud<PointType>::Ptr coeffSel;
 
+  // 当前位置附近的submap的特征点云
   pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMap;
   pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMap;
-  pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMapDS;
+  pcl::PointCloud<PointType>::Ptr laserCloudCornerFromMapDS;    // 降采样后的
   pcl::PointCloud<PointType>::Ptr laserCloudSurfFromMapDS;
 
   nanoflann::KdTreeFLANN<PointType> kdtreeCornerFromMap;
@@ -141,6 +146,7 @@ class MapOptimization {
   nanoflann::KdTreeFLANN<PointType> kdtreeSurroundingKeyPoses;
   nanoflann::KdTreeFLANN<PointType> kdtreeHistoryKeyPoses;
 
+  // 当前位置找到 附近需要闭环的submap点云
   pcl::PointCloud<PointType>::Ptr nearHistoryCornerKeyFrameCloud;
   pcl::PointCloud<PointType>::Ptr nearHistoryCornerKeyFrameCloudDS;
   pcl::PointCloud<PointType>::Ptr nearHistorySurfKeyFrameCloud;
@@ -150,6 +156,7 @@ class MapOptimization {
   pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloud;
   pcl::PointCloud<PointType>::Ptr latestSurfKeyFrameCloudDS;
 
+  // 用来发布整个点云图结果，包括位置历史pose 和 一个整的cloud
   nanoflann::KdTreeFLANN<PointType> kdtreeGlobalMap;
   pcl::PointCloud<PointType>::Ptr globalMapKeyPoses;
   pcl::PointCloud<PointType>::Ptr globalMapKeyPosesDS;
@@ -176,11 +183,11 @@ class MapOptimization {
   double timeLastGloalMapPublish;
 
   float transformLast[6];
-  float transformSum[6];
+  float transformSum[6];          // 当前里程计坐标
   float transformIncre[6];
   float transformTobeMapped[6];
   float transformBefMapped[6];
-  float transformAftMapped[6];
+  float transformAftMapped[6];    // slam过程中当前帧在世界坐标系下坐标
 
 
   std::mutex mtx;
