@@ -23,6 +23,8 @@ class ImageProjection {
   void cloudSegmentation();
   void labelComponents(int row, int col);
   void publishClouds();
+  // added by jiajia
+  void publishlaser(sensor_msgs::PointCloud2& temp);
 
   // 点云定义
   pcl::PointCloud<PointType>::Ptr _laser_cloud_in;
@@ -34,6 +36,9 @@ class ImageProjection {
   pcl::PointCloud<PointType>::Ptr _segmented_cloud;
   pcl::PointCloud<PointType>::Ptr _segmented_cloud_pure;
   pcl::PointCloud<PointType>::Ptr _outlier_cloud;
+
+  // added by wangjiajia
+  sensor_msgs::LaserScan _scan_msg;    //增加投影2维激光点云
 
   ros::NodeHandle& _nh;
   int _vertical_scans;
@@ -63,6 +68,8 @@ class ImageProjection {
   ros::Publisher _pub_segmented_cloud_pure;
   ros::Publisher _pub_segmented_cloud_info;
   ros::Publisher _pub_outlier_cloud;
+  //added by wangjiajia
+  ros::Publisher _pub_laser;   
 
   cloud_msgs::cloud_info _seg_msg;    // 自定义的message
 

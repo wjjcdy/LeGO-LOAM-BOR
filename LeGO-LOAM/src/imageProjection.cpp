@@ -51,6 +51,9 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
       nh.advertise<cloud_msgs::cloud_info>("/segmented_cloud_info", 1);
   _pub_outlier_cloud = nh.advertise<sensor_msgs::PointCloud2>("/outlier_cloud", 1);
 
+  // added by wangjiajia
+  _pub_laser = nh.advertise<sensor_msgs::LaserScan>("/scan", 1);
+
   nh.getParam("/lego_loam/laser/num_vertical_scans", _vertical_scans);
   nh.getParam("/lego_loam/laser/num_horizontal_scans", _horizontal_scans);
   nh.getParam("/lego_loam/laser/vertical_angle_bottom", _ang_bottom);
@@ -128,6 +131,15 @@ void ImageProjection::resetParameters() {
   _seg_msg.segmentedCloudGroundFlag.assign(cloud_size, false);
   _seg_msg.segmentedCloudColInd.assign(cloud_size, 0);
   _seg_msg.segmentedCloudRange.assign(cloud_size, 0);
+
+  // added by wangjiajia 
+  _scan_msg.range_min = 0.1;
+  _scan_msg.range_max = 80;
+  _scan_msg.angle_min = -M_PI;
+  _scan_msg.angle_max = M_PI;
+  _scan_msg.angle_increment = 2*M_PI/_horizontal_scans;
+  _scan_msg.ranges.resize(_horizontal_scans);        //垂直投影为2维laser
+  _scan_msg.intensities.resize(_horizontal_scans);   // 
 }
 
 // 接收激光点云处理回调
@@ -276,6 +288,44 @@ void ImageProjection::groundRemoval() {
         _ground_cloud->push_back(_full_cloud->points[j + i * _horizontal_scans]);
     }
   }
+
+  // 投影成2维激光
+  #if 1
+  for (size_t j = 0; j < _horizontal_scans; ++j) {
+    float min_range = 1000;
+    for (size_t i = 0; i < _vertical_scans; ++i) {
+      size_t Ind = j + (i)*_horizontal_scans;
+      float Z = _full_cloud->points[Ind].z;
+      if ((_ground_mat(i, j) != 1) &&
+          (Z > 0.2) && (Z<0.8) &&
+          (_range_mat(i, j)<80)) {                     // 地面上点云忽略, 过高过矮的点忽略， 过远的点忽略
+          if(_range_mat(i, j) < min_range) {           // 计算最小距离
+            min_range = _range_mat(i, j);
+          }
+      }
+    }
+    if (min_range<1000) {
+      _scan_msg.ranges[j] = min_range;
+    }
+    else {
+      _scan_msg.ranges[j] = std::numeric_limits<float>::infinity();
+    }
+  }
+  #else
+  for (size_t j = 0; j < _horizontal_scans; ++j) {
+    size_t Ind = j + (7)*_horizontal_scans;
+    float Z = _full_cloud->points[Ind].z;
+    if ((_ground_mat(7, j) != 1) &&
+        (_range_mat(7, j)<80)) {                     // 地面上点云忽略, 过高过矮的点忽略， 过远的点忽略
+          _scan_msg.ranges[j] = _range_mat(7, j);
+    }
+    else {
+      _scan_msg.ranges[j] = std::numeric_limits<float>::infinity();
+    }
+  }
+  #endif
+
+  //
 }
 
 void ImageProjection::cloudSegmentation() {
@@ -424,6 +474,14 @@ void ImageProjection::labelComponents(int row, int col) {
   }
 }
 
+// added by wangjiajia
+//
+void ImageProjection::publishlaser(sensor_msgs::PointCloud2& temp) {
+  _scan_msg.header.stamp = temp.header.stamp;
+  _scan_msg.header.frame_id = "base_link";
+  _pub_laser.publish(_scan_msg);
+}
+
 void ImageProjection::publishClouds() {
 
   sensor_msgs::PointCloud2 temp;
@@ -449,6 +507,9 @@ void ImageProjection::publishClouds() {
   if (_pub_segmented_cloud_info.getNumSubscribers() != 0) {
     _pub_segmented_cloud_info.publish(_seg_msg);                                  //_segmented_cloud 与 _seg_msg 内容一致，包含地面信息的聚类的点
   }                                                                               // 但是以1维数组进行存储，同时记录了没行数据在一维数组中起始位置
+ 
+  //added by wangjiajia
+  publishlaser(temp);
 
   //--------------------
   ProjectionOut out;                                                              // 管道输出包括三种点云
@@ -458,6 +519,7 @@ void ImageProjection::publishClouds() {
   std::swap( out.seg_msg, _seg_msg);                                              // 交换两个数，实际也为赋值
   std::swap(out.outlier_cloud, _outlier_cloud);
   std::swap(out.segmented_cloud, _segmented_cloud);
+  std::swap(out.scan_msg, _scan_msg);
 
   _output_channel.send( std::move(out) );
 

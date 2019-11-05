@@ -1307,6 +1307,7 @@ void FeatureAssociation::runFeatureAssociation() {
     outlierCloud = projection.outlier_cloud;         //分别为未被分类的孤立点云簇
     segmentedCloud = projection.segmented_cloud;     //被分类的包含地面
     segInfo = std::move(projection.seg_msg);         // 强行转换
+    _scan_msg = std::move(projection.scan_msg);
 
     cloudHeader = segInfo.header;
     timeScanCur = cloudHeader.stamp.toSec();
@@ -1351,7 +1352,8 @@ void FeatureAssociation::runFeatureAssociation() {
       *out.cloud_outlier_last = *outlierCloud;
 
       out.laser_odometry = laserOdometry;
-
+      //added by jiajia
+      out.scan_msg = _scan_msg;
       _output_channel.send(std::move(out));
     }
   }

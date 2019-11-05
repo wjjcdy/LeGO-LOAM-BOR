@@ -39,6 +39,8 @@ class FeatureAssociation {
   ros::Publisher pubCornerPointsLessSharp;
   ros::Publisher pubSurfPointsFlat;
   ros::Publisher pubSurfPointsLessFlat;
+  // added by wangjiajia
+  sensor_msgs::LaserScan _scan_msg;
 
   // 点云定义变量
   pcl::PointCloud<PointType>::Ptr segmentedCloud;
