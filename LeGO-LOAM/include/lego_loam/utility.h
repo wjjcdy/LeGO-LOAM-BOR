@@ -7,6 +7,7 @@
 #include <sensor_msgs/Imu.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <nav_msgs/Odometry.h>
+#include <sensor_msgs/LaserScan.h>
 
 #include "cloud_msgs/cloud_info.h"
 
@@ -64,6 +65,7 @@ struct ProjectionOut
   pcl::PointCloud<PointType>::Ptr segmented_cloud;
   pcl::PointCloud<PointType>::Ptr outlier_cloud;
   cloud_msgs::cloud_info seg_msg;
+  sensor_msgs::LaserScan scan_msg;
 };
 
 
@@ -73,6 +75,7 @@ struct AssociationOut
   pcl::PointCloud<PointType>::Ptr cloud_corner_last;
   pcl::PointCloud<PointType>::Ptr cloud_surf_last;
   nav_msgs::Odometry laser_odometry;
+  sensor_msgs::LaserScan scan_msg;
 };
 
 struct RollPitchYaw{
