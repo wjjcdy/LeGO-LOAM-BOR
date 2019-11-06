@@ -4,6 +4,7 @@
 #include "lego_loam/utility.h"
 #include "lego_loam/channel.h"
 #include "lego_loam/nanoflann_pcl.h"
+#include "lego_loam/probability_grid_map.h"
 
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Rot3.h>
@@ -224,6 +225,11 @@ class MapOptimization {
 
   float cRoll, sRoll, cPitch, sPitch, cYaw, sYaw, tX, tY, tZ;
   float ctRoll, stRoll, ctPitch, stPitch, ctYaw, stYaw, tInX, tInY, tInZ;
+  // added by jiajia
+  std::vector<std::shared_ptr<szyh_slam::LaserScan>> _scans;
+  //sensor_msgs::LaserScan _scan_msg;
+  pcl::PointCloud<PointType>::Ptr _scan_msg;
+  ros::Publisher map_pub_;
 
  private:
   void allocateMemory();
@@ -258,6 +264,15 @@ class MapOptimization {
   void correctPoses();
 
   void clearCloud();
+
+  // added by jiajia
+  void addLaserScan(const sensor_msgs::LaserScan& scan_msg,
+                    const Eigen::Vector3f& pose);
+  void publishProbabilityGridMap();
+  std::shared_ptr<szyh_slam::ProbabilityGridMap> getProbabilityGridMap(
+    const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans,
+    double occupancy_grid_map_resolution);
+
 };
 
 #endif // MAPOPTIMIZATION_H

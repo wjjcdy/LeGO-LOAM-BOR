@@ -38,7 +38,8 @@ class ImageProjection {
   pcl::PointCloud<PointType>::Ptr _outlier_cloud;
 
   // added by wangjiajia
-  sensor_msgs::LaserScan _scan_msg;    //增加投影2维激光点云
+  //sensor_msgs::LaserScan _scan_msg;    //增加投影2维激光点云
+  pcl::PointCloud<PointType>::Ptr _scan_msg;
 
   ros::NodeHandle& _nh;
   int _vertical_scans;

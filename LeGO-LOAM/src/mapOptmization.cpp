@@ -60,6 +60,7 @@ MapOptimization::MapOptimization(ros::NodeHandle &node,
   // 里程计
   pubOdomAftMapped = nh.advertise<nav_msgs::Odometry>("/aft_mapped_to_init", 5);
 
+  map_pub_ = nh.advertise<nav_msgs::OccupancyGrid>("/2d_map", 1, true);
   pubHistoryKeyFrames =
       nh.advertise<sensor_msgs::PointCloud2>("/history_cloud", 2);
   pubIcpKeyFrames =
@@ -166,6 +167,10 @@ void MapOptimization::allocateMemory() {
   laserCloudSurfTotalLastDS.reset(
       new pcl::PointCloud<PointType>());  // downsampled surf featuer set from
                                           // odoOptimization
+  
+  // added by jiajia
+  _scan_msg.reset(
+      new pcl::PointCloud<PointType>());
 
   laserCloudOri.reset(new pcl::PointCloud<PointType>());
   coeffSel.reset(new pcl::PointCloud<PointType>());
@@ -549,6 +554,78 @@ void MapOptimization::publishKeyPosesAndFrames() {
   }
 }
 
+// added by jiajia
+void MapOptimization::addLaserScan(const Eigen::Vector3f& pose) {
+  PointCloud scan_points;
+
+  // 将极坐标转换为直角坐标系
+  for(int i = 0; i < _scan_msg->points.size(); ++i) {
+    scan_points.emplace_back(_scan_msg->points[i].x, _scan_msg->points[i].y);
+  }
+  
+  // 定义新的scan格式，每一束光采用直角坐标
+  std::shared_ptr<szyh_slam::LaserScan> laser_scan(new szyh_slam::LaserScan(scan_points));
+  laser_scan->setId(_scans.size());       // 第一帧激光不做处理，仅记录并放入优化器顶点中
+  // laser_scan->setPose(Eigen::Vector3f(0, 0, 0));
+  laser_scan->setPose(pose);              //记录初始激光帧位置，用于slam建图初始坐标（即创建地图坐标系）
+  laser_scan->transformPointCloud();      //根据激光位置，计算每个点的在map的位置
+  _scans.push_back(laser_scan);           //收集每帧激光
+}
+
+std::shared_ptr<szyh_slam::ProbabilityGridMap> 
+MapOptimization::getProbabilityGridMap(
+    const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans,
+    double occupancy_grid_map_resolution)
+{
+    szyh_slam::Range map_range;
+    for (const std::shared_ptr<szyh_slam::LaserScan>& scan : scans) {
+        map_range.addRange(scan->getRange());
+    }
+
+    const Eigen::Vector2f& max = map_range.getMax();
+    const Eigen::Vector2f& min = map_range.getMin();
+    int width = ceil((max[0] - min[0]) / occupancy_grid_map_resolution);
+    int height = ceil((max[1] - min[1]) / occupancy_grid_map_resolution);
+
+    std::shared_ptr<szyh_slam::ProbabilityGridMap> probability_grid_map(new szyh_slam::ProbabilityGridMap(width, height, occupancy_grid_map_resolution));
+    probability_grid_map->setOrigin(min);
+    probability_grid_map->createFromScan(scans);
+
+    return probability_grid_map;
+}
+
+void MapOptimization::publishProbabilityGridMap()
+{
+    auto map = getProbabilityGridMap(_scans, 0.05);
+    ROS_WARN("mapping");
+    nav_msgs::OccupancyGrid map_msg;
+    Eigen::Vector2f origin = map->getOrigin();
+    map_msg.header.stamp = ros::Time::now();
+    map_msg.header.frame_id = "/map";
+    map_msg.info.origin.position.x = origin.x();
+    map_msg.info.origin.position.y = origin.y();
+    map_msg.info.origin.orientation.x = 0;
+    map_msg.info.origin.orientation.y = 0;
+    map_msg.info.origin.orientation.z = 0;
+    map_msg.info.origin.orientation.w = 1;
+    map_msg.info.resolution = map->getResolution();
+    map_msg.info.width = map->getSizeX();
+    map_msg.info.height = map->getSizeY();
+    map_msg.data.resize(map_msg.info.width * map_msg.info.height, -1);
+
+    for(int i = 0; i < map_msg.data.size(); ++i) {
+        int value = map->getGridValue(i);
+        if(value == szyh_slam::LogOdds_Unknown) {
+            map_msg.data[i] = -1;
+        }
+        else {
+            map_msg.data[i] = map->getGridValue(i);
+        }
+    }
+
+    map_pub_.publish(map_msg);
+}
+
 // 发布 3d 图
 void MapOptimization::publishGlobalMap() {
   if (pubLaserCloudSurround.getNumSubscribers() == 0) return;   // 
@@ -592,10 +669,19 @@ void MapOptimization::publishGlobalMap() {
   cloudMsgTemp.header.frame_id = "/camera_init";
   pubLaserCloudSurround.publish(cloudMsgTemp);
 
+  // for (int i = 0; i < globalMapKeyPosesDS->points.size(); ++i) {                   // 将其机器人坐标系下的点云point，转换成世界坐标系下坐标 
+  // {
+  //   pcl::PointCloud<PointType>::Ptr MapKeyFrames;
+  //   MapKeyFrames.reset(new pcl::PointCloud<PointType>());
+
+  //   MapKeyFrames->clear();
+  // }
+
   globalMapKeyPoses->clear();
   globalMapKeyPosesDS->clear();
   globalMapKeyFrames->clear();
   //globalMapKeyFramesDS->clear();
+  publishProbabilityGridMap();
 }
 
 // 闭环检测，找到历史中可能闭环的帧， 并用历史帧构建submap，用于闭环匹配构建新的位姿
@@ -1276,6 +1362,9 @@ void MapOptimization::saveKeyFramesAndFactor() {
                  Point3(transformTobeMapped[5], transformTobeMapped[3],
                         transformTobeMapped[4])));
     for (int i = 0; i < 6; ++i) transformLast[i] = transformTobeMapped[i];
+    
+    // added by jiajia
+    addLaserScan(Eigen::Vector3f(currentRobotPosPoint.x,currentRobotPosPoint.y,transformAftMapped[2])); 
   } 
   else
   {
@@ -1371,6 +1460,9 @@ void MapOptimization::saveKeyFramesAndFactor() {
   cornerCloudKeyFrames.push_back(thisCornerKeyFrame);
   surfCloudKeyFrames.push_back(thisSurfKeyFrame);
   outlierCloudKeyFrames.push_back(thisOutlierKeyFrame);
+
+  // added by jiajia
+  addLaserScan(Eigen::Vector3f(thisPose6D.x,thisPose6D.y,thisPose6D.yaw)); 
 }
 
 // 若存在闭环处理，则需要对位姿进行修正，将历史的的位姿用优化后的数据进行更新
@@ -1398,6 +1490,8 @@ void MapOptimization::correctPoses() {
           isamCurrentEstimate.at<Pose3>(i).rotation().yaw();
       cloudKeyPoses6D->points[i].yaw =
           isamCurrentEstimate.at<Pose3>(i).rotation().roll();
+      _scans[i]->setPose(Eigen::Vector3f(cloudKeyPoses6D->points[i].x,cloudKeyPoses6D->points[i].y,cloudKeyPoses6D->points[i].yaw));
+      _scans[i]->transformPointCloud();
     }
 
     aLoopIsClosed = false;                  // 修正完成
@@ -1422,7 +1516,8 @@ void MapOptimization::run() {
 
     {
       std::lock_guard<std::mutex> lock(mtx);
-
+      // added by jiajia
+      _scan_msg = association.scan_msg;
       laserCloudCornerLast = association.cloud_corner_last;
       laserCloudSurfLast = association.cloud_surf_last;
       laserCloudOutlierLast = association.cloud_outlier_last;

@@ -52,7 +52,7 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
   _pub_outlier_cloud = nh.advertise<sensor_msgs::PointCloud2>("/outlier_cloud", 1);
 
   // added by wangjiajia
-  _pub_laser = nh.advertise<sensor_msgs::LaserScan>("/scan", 1);
+  _pub_laser = nh.advertise<sensor_msgs::PointCloud2>("/scan", 1);
 
   nh.getParam("/lego_loam/laser/num_vertical_scans", _vertical_scans);
   nh.getParam("/lego_loam/laser/num_horizontal_scans", _horizontal_scans);
@@ -92,6 +92,9 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
   _segmented_cloud.reset(new pcl::PointCloud<PointType>());
   _segmented_cloud_pure.reset(new pcl::PointCloud<PointType>());
   _outlier_cloud.reset(new pcl::PointCloud<PointType>());
+
+  // added by jiajia
+  _scan_msg.reset(new pcl::PointCloud<PointType>());
 
   _full_cloud->points.resize(cloud_size);
   _full_info_cloud->points.resize(cloud_size);
@@ -133,13 +136,14 @@ void ImageProjection::resetParameters() {
   _seg_msg.segmentedCloudRange.assign(cloud_size, 0);
 
   // added by wangjiajia 
-  _scan_msg.range_min = 0.1;
-  _scan_msg.range_max = 80;
-  _scan_msg.angle_min = -M_PI;
-  _scan_msg.angle_max = M_PI;
-  _scan_msg.angle_increment = 2*M_PI/_horizontal_scans;
-  _scan_msg.ranges.resize(_horizontal_scans);        //垂直投影为2维laser
-  _scan_msg.intensities.resize(_horizontal_scans);   // 
+  _scan_msg->clear();
+  // _scan_msg.range_min = 0.1;
+  // _scan_msg.range_max = 80;
+  // _scan_msg.angle_min = -M_PI;
+  // _scan_msg.angle_max = M_PI;
+  // _scan_msg.angle_increment = 2*M_PI/_horizontal_scans;
+  // _scan_msg.ranges.resize(_horizontal_scans);        //垂直投影为2维laser
+  // _scan_msg.intensities.resize(_horizontal_scans);   // 
 }
 
 // 接收激光点云处理回调
@@ -293,22 +297,21 @@ void ImageProjection::groundRemoval() {
   #if 1
   for (size_t j = 0; j < _horizontal_scans; ++j) {
     float min_range = 1000;
+    size_t id_min = 0;
     for (size_t i = 0; i < _vertical_scans; ++i) {
       size_t Ind = j + (i)*_horizontal_scans;
       float Z = _full_cloud->points[Ind].z;
       if ((_ground_mat(i, j) != 1) &&
-          (Z > 0.2) && (Z<0.8) &&
-          (_range_mat(i, j)<80)) {                     // 地面上点云忽略, 过高过矮的点忽略， 过远的点忽略
+          (Z > 0.4) && (Z<1.2) &&
+          (_range_mat(i, j)<40)) {                     // 地面上点云忽略, 过高过矮的点忽略， 过远的点忽略
           if(_range_mat(i, j) < min_range) {           // 计算最小距离
             min_range = _range_mat(i, j);
+            id_min = Ind;
           }
       }
     }
     if (min_range<1000) {
-      _scan_msg.ranges[j] = min_range;
-    }
-    else {
-      _scan_msg.ranges[j] = std::numeric_limits<float>::infinity();
+      _scan_msg->push_back(_full_cloud->points[id_min]);
     }
   }
   #else
@@ -476,11 +479,11 @@ void ImageProjection::labelComponents(int row, int col) {
 
 // added by wangjiajia
 //
-void ImageProjection::publishlaser(sensor_msgs::PointCloud2& temp) {
-  _scan_msg.header.stamp = temp.header.stamp;
-  _scan_msg.header.frame_id = "base_link";
-  _pub_laser.publish(_scan_msg);
-}
+// void ImageProjection::publishlaser(sensor_msgs::PointCloud2& temp) {
+//   _scan_msg.header.stamp = temp.header.stamp;
+//   _scan_msg.header.frame_id = "base_link";
+//   _pub_laser.publish(_scan_msg);
+// }
 
 void ImageProjection::publishClouds() {
 
@@ -503,13 +506,15 @@ void ImageProjection::publishClouds() {
   PublishCloud(_pub_ground_cloud, temp, _ground_cloud);                           // 仅包含地面点云，且不同行，强度信息有区分
   PublishCloud(_pub_segmented_cloud_pure, temp, _segmented_cloud_pure);           // 聚类的结果，不包括地面和一些孤立点云簇（即个数过少），但包含垂直方向上点跨过3行5个点数以上的数据
   PublishCloud(_pub_full_info_cloud, temp, _full_info_cloud);                     // 全部点云信息，剔除过近的点，强度为距离
+  //added by jiajia
+  PublishCloud(_pub_laser, temp, _scan_msg);  
 
   if (_pub_segmented_cloud_info.getNumSubscribers() != 0) {
     _pub_segmented_cloud_info.publish(_seg_msg);                                  //_segmented_cloud 与 _seg_msg 内容一致，包含地面信息的聚类的点
   }                                                                               // 但是以1维数组进行存储，同时记录了没行数据在一维数组中起始位置
  
   //added by wangjiajia
-  publishlaser(temp);
+  // publishlaser(temp);
 
   //--------------------
   ProjectionOut out;                                                              // 管道输出包括三种点云

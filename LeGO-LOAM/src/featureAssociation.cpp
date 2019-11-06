@@ -1353,7 +1353,8 @@ void FeatureAssociation::runFeatureAssociation() {
 
       out.laser_odometry = laserOdometry;
       //added by jiajia
-      out.scan_msg = _scan_msg;
+      out.scan_msg.reset(new pcl::PointCloud<PointType>());
+      *out.scan_msg = *_scan_msg;
       _output_channel.send(std::move(out));
     }
   }
