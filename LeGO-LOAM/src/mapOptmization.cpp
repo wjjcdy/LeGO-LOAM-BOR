@@ -171,6 +171,8 @@ void MapOptimization::allocateMemory() {
   // added by jiajia
   _scan_msg.reset(
       new pcl::PointCloud<PointType>());
+  _scan_msgDS.reset(
+      new pcl::PointCloud<PointType>());
 
   laserCloudOri.reset(new pcl::PointCloud<PointType>());
   coeffSel.reset(new pcl::PointCloud<PointType>());
@@ -681,6 +683,7 @@ void MapOptimization::publishGlobalMap() {
   globalMapKeyPosesDS->clear();
   globalMapKeyFrames->clear();
   //globalMapKeyFramesDS->clear();
+  ROS_WARN("X:%f,    y:%f,     z:%f",currentRobotPosPoint.x,currentRobotPosPoint.y,currentRobotPosPoint.z);
   publishProbabilityGridMap();
 }
 
@@ -993,6 +996,10 @@ void MapOptimization::downsampleCurrentScan() {
   downSizeFilterCorner.setInputCloud(laserCloudCornerLast);
   downSizeFilterCorner.filter(*laserCloudCornerLastDS);                 // 20立方cm 
   laserCloudCornerLastDSNum = laserCloudCornerLastDS->points.size();   //角特征点云
+
+  _scan_msgDS->clear();
+  downSizeFilterCorner.setInputCloud(_scan_msg);
+  downSizeFilterCorner.filter(*_scan_msgDS);                 // 20立方cm 
 
   laserCloudSurfLastDS->clear();
   downSizeFilterSurf.setInputCloud(laserCloudSurfLast);
@@ -1363,8 +1370,8 @@ void MapOptimization::saveKeyFramesAndFactor() {
                         transformTobeMapped[4])));
     for (int i = 0; i < 6; ++i) transformLast[i] = transformTobeMapped[i];
     
-    // added by jiajia
-    addLaserScan(Eigen::Vector3f(currentRobotPosPoint.x,currentRobotPosPoint.y,transformAftMapped[2])); 
+    // // added by jiajia
+    // addLaserScan(Eigen::Vector3f(currentRobotPosPoint.x,currentRobotPosPoint.y,transformAftMapped[2])); 
   } 
   else
   {
@@ -1462,7 +1469,7 @@ void MapOptimization::saveKeyFramesAndFactor() {
   outlierCloudKeyFrames.push_back(thisOutlierKeyFrame);
 
   // added by jiajia
-  addLaserScan(Eigen::Vector3f(thisPose6D.x,thisPose6D.y,thisPose6D.yaw)); 
+  addLaserScan(Eigen::Vector3f(thisPose6D.z,thisPose6D.x,thisPose6D.pitch)); 
 }
 
 // 若存在闭环处理，则需要对位姿进行修正，将历史的的位姿用优化后的数据进行更新

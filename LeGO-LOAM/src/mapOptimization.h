@@ -229,6 +229,7 @@ class MapOptimization {
   std::vector<std::shared_ptr<szyh_slam::LaserScan>> _scans;
   //sensor_msgs::LaserScan _scan_msg;
   pcl::PointCloud<PointType>::Ptr _scan_msg;
+  pcl::PointCloud<PointType>::Ptr _scan_msgDS;
   ros::Publisher map_pub_;
 
  private:
