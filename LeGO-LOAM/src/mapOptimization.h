@@ -266,8 +266,7 @@ class MapOptimization {
   void clearCloud();
 
   // added by jiajia
-  void addLaserScan(const sensor_msgs::LaserScan& scan_msg,
-                    const Eigen::Vector3f& pose);
+  void addLaserScan(const Eigen::Vector3f& pose);
   void publishProbabilityGridMap();
   std::shared_ptr<szyh_slam::ProbabilityGridMap> getProbabilityGridMap(
     const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans,
