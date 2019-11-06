@@ -520,7 +520,7 @@ void ImageProjection::publishClouds() {
   ProjectionOut out;                                                              // 管道输出包括三种点云
   out.outlier_cloud.reset(new pcl::PointCloud<PointType>());
   out.segmented_cloud.reset(new pcl::PointCloud<PointType>());
-
+  out.scan_msg.reset(new pcl::PointCloud<PointType>()); 
   std::swap( out.seg_msg, _seg_msg);                                              // 交换两个数，实际也为赋值
   std::swap(out.outlier_cloud, _outlier_cloud);
   std::swap(out.segmented_cloud, _segmented_cloud);
