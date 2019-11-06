@@ -1497,7 +1497,7 @@ void MapOptimization::correctPoses() {
           isamCurrentEstimate.at<Pose3>(i).rotation().yaw();
       cloudKeyPoses6D->points[i].yaw =
           isamCurrentEstimate.at<Pose3>(i).rotation().roll();
-      _scans[i]->setPose(Eigen::Vector3f(cloudKeyPoses6D->points[i].x,cloudKeyPoses6D->points[i].y,cloudKeyPoses6D->points[i].yaw));
+      _scans[i]->setPose(Eigen::Vector3f(cloudKeyPoses6D->points[i].z,cloudKeyPoses6D->points[i].x,cloudKeyPoses6D->points[i].pitch));
       _scans[i]->transformPointCloud();
     }
 
