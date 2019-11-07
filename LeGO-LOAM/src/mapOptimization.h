@@ -268,7 +268,7 @@ class MapOptimization {
 
   // added by jiajia
   void addLaserScan(const Eigen::Vector3f& pose);
-  void publishProbabilityGridMap();
+  void publishProbabilityGridMap(const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans);
   std::shared_ptr<szyh_slam::ProbabilityGridMap> getProbabilityGridMap(
     const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans,
     double occupancy_grid_map_resolution);

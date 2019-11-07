@@ -596,9 +596,10 @@ MapOptimization::getProbabilityGridMap(
     return probability_grid_map;
 }
 
-void MapOptimization::publishProbabilityGridMap()
+void MapOptimization::publishProbabilityGridMap(
+  const std::vector<std::shared_ptr<szyh_slam::LaserScan>>& scans)
 {
-    auto map = getProbabilityGridMap(_scans, 0.05);
+    auto map = getProbabilityGridMap(scans, 0.05);
     ROS_WARN("mapping");
     nav_msgs::OccupancyGrid map_msg;
     Eigen::Vector2f origin = map->getOrigin();
@@ -651,6 +652,7 @@ void MapOptimization::publishGlobalMap() {
   downSizeFilterGlobalMapKeyPoses.setInputCloud(globalMapKeyPoses);
   downSizeFilterGlobalMapKeyPoses.filter(*globalMapKeyPosesDS);         // 降采样到1立方米内一个点，即1m一个轨迹点
   // extract visualized and downsampled key frames
+  std::vector<std::shared_ptr<szyh_slam::LaserScan>> all_scan;
   for (int i = 0; i < globalMapKeyPosesDS->points.size(); ++i) {                   // 将其机器人坐标系下的点云point，转换成世界坐标系下坐标 
     int thisKeyInd = (int)globalMapKeyPosesDS->points[i].intensity;     
     *globalMapKeyFrames += *transformPointCloud(
@@ -660,6 +662,10 @@ void MapOptimization::publishGlobalMap() {
     *globalMapKeyFrames +=
         *transformPointCloud(outlierCloudKeyFrames[thisKeyInd],
                              &cloudKeyPoses6D->points[thisKeyInd]);
+
+    std::shared_ptr<szyh_slam::LaserScan> scan_copy(new szyh_slam::LaserScan());
+    *scan_copy = *_scans[thisKeyInd];
+    all_scan.emplace_back(scan_copy);
   }
   // downsample visualized points
   downSizeFilterGlobalMapKeyFrames.setInputCloud(globalMapKeyFrames);
@@ -683,8 +689,7 @@ void MapOptimization::publishGlobalMap() {
   globalMapKeyPosesDS->clear();
   globalMapKeyFrames->clear();
   //globalMapKeyFramesDS->clear();
-  ROS_WARN("X:%f,    y:%f,     z:%f",currentRobotPosPoint.x,currentRobotPosPoint.y,currentRobotPosPoint.z);
-  publishProbabilityGridMap();
+  publishProbabilityGridMap(all_scan);
 }
 
 // 闭环检测，找到历史中可能闭环的帧， 并用历史帧构建submap，用于闭环匹配构建新的位姿
