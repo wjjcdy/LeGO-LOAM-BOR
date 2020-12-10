@@ -76,19 +76,20 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
               _segment_valid_line_num);
 
   nh.getParam("/lego_loam/laser/ground_scan_index",
-              _ground_scan_index);
+              _ground_scan_index);                                    // 垂直方向搜索地面点云的垂直方向最大索引，
+                                                                      // 如7，由于hdl16为16根线，则0~7即水平以下可能测到地面
 
   nh.getParam("/lego_loam/laser/sensor_mount_angle",
               _sensor_mount_angle);
   _sensor_mount_angle *= DEG_TO_RAD;
 
   const size_t cloud_size = _vertical_scans * _horizontal_scans;      // 激光点云总个数
+                                                                      // 实例化所有点云
+  _laser_cloud_in.reset(new pcl::PointCloud<PointType>());            // 输入的原始激光点云
+  _full_cloud.reset(new pcl::PointCloud<PointType>());                // 根据激光的参数，一帧全部的点云数据包括无效值
+  _full_info_cloud.reset(new pcl::PointCloud<PointType>());           // 包含tag信息的的点云数据
 
-  _laser_cloud_in.reset(new pcl::PointCloud<PointType>());            // 实例化所有点云
-  _full_cloud.reset(new pcl::PointCloud<PointType>());
-  _full_info_cloud.reset(new pcl::PointCloud<PointType>());
-
-  _ground_cloud.reset(new pcl::PointCloud<PointType>());
+  _ground_cloud.reset(new pcl::PointCloud<PointType>());              // 分割后地面的点云 
   _segmented_cloud.reset(new pcl::PointCloud<PointType>());
   _segmented_cloud_pure.reset(new pcl::PointCloud<PointType>());
   _outlier_cloud.reset(new pcl::PointCloud<PointType>());
@@ -96,40 +97,42 @@ ImageProjection::ImageProjection(ros::NodeHandle& nh,
   // added by jiajia
   _scan_msg.reset(new pcl::PointCloud<PointType>());
 
-  _full_cloud->points.resize(cloud_size);
+  // 激光原始点云数目提前设置
+  _full_cloud->points.resize(cloud_size);                             // 完整的点云信息个数为固定
   _full_info_cloud->points.resize(cloud_size);
 
 }
 
+// 初始化所有参数
 void ImageProjection::resetParameters() {
   const size_t cloud_size = _vertical_scans * _horizontal_scans;
   PointType nanPoint;
-  nanPoint.x = std::numeric_limits<float>::quiet_NaN();  //应该是等于NAN
+  nanPoint.x = std::numeric_limits<float>::quiet_NaN();    //应该是等于NAN
   nanPoint.y = std::numeric_limits<float>::quiet_NaN();
   nanPoint.z = std::numeric_limits<float>::quiet_NaN();
 
-  _laser_cloud_in->clear();
+  _laser_cloud_in->clear();                                //中间buffer点云全部默认
   _ground_cloud->clear();
   _segmented_cloud->clear();
   _segmented_cloud_pure->clear();
   _outlier_cloud->clear();
 
   _range_mat.resize(_vertical_scans, _horizontal_scans);   //定义激光点的个数，用于存储距离
-  _ground_mat.resize(_vertical_scans, _horizontal_scans);
-  _label_mat.resize(_vertical_scans, _horizontal_scans);
+  _ground_mat.resize(_vertical_scans, _horizontal_scans);  // 存储地面
+  _label_mat.resize(_vertical_scans, _horizontal_scans);   // 带有tag的点云 
 
   _range_mat.fill(FLT_MAX);                                // 全部初始化最大值
   _ground_mat.setZero();                                   // 初始化为0
   _label_mat.setZero();                                    // 初始化为0
 
-  _label_count = 1;
-
+  _label_count = 1;                                        // 点云分类后label的第一个label标识号
+                                                           // 全点云预设无效值
   std::fill(_full_cloud->points.begin(), _full_cloud->points.end(), nanPoint);
   std::fill(_full_info_cloud->points.begin(), _full_info_cloud->points.end(),
             nanPoint);
 
-  _seg_msg.startRingIndex.assign(_vertical_scans, 0);  // 16线起始索引均初始化为0， 采用容器的方式， 第一参数表明size， 第二参数表明 value
-  _seg_msg.endRingIndex.assign(_vertical_scans, 0);  // 同上
+  _seg_msg.startRingIndex.assign(_vertical_scans, 0);      // 16线起始索引均初始化为0， 采用容器的方式， 第一参数表明size， 第二参数表明 value
+  _seg_msg.endRingIndex.assign(_vertical_scans, 0);        // 同上
 
   _seg_msg.segmentedCloudGroundFlag.assign(cloud_size, false);
   _seg_msg.segmentedCloudColInd.assign(cloud_size, 0);
@@ -153,7 +156,7 @@ void ImageProjection::cloudHandler(
   resetParameters();
 
   // Copy and remove NAN points
-  pcl::fromROSMsg(*laserCloudMsg, *_laser_cloud_in);            // ros message 转换为 pcl point
+  pcl::fromROSMsg(*laserCloudMsg, *_laser_cloud_in);                          // ros message 转换为 pcl point
   std::vector<int> indices;
   pcl::removeNaNFromPointCloud(*_laser_cloud_in, *_laser_cloud_in, indices);  // 剔除非正常数
   _seg_msg.header = laserCloudMsg->header;
@@ -171,11 +174,12 @@ void ImageProjection::cloudHandler(
 }
 
 
+// 将输入的原始点云还原成激光扫描方式的排列，形成2维深度图，即V×H大小2维矩阵
 void ImageProjection::projectPointCloud() {
   // range image projection
   const size_t cloudSize = _laser_cloud_in->points.size();
 
-  for (size_t i = 0; i < cloudSize; ++i) {
+  for (size_t i = 0; i < cloudSize; ++i) {                             // 遍历每一个点云信息
     PointType thisPoint = _laser_cloud_in->points[i];
 
     float range = sqrt(thisPoint.x * thisPoint.x +                     // 反推点的距离
@@ -220,6 +224,8 @@ void ImageProjection::projectPointCloud() {
 }
 
 // 查找整个点云数据起始角度和终止角度
+// 应该是查找整个点云的起始和终止角度，或者说激光雷达开始扫描和结束的水平方向角度
+// 其目的是可以识别任何型号的3d雷达，而非直接原始雷达本身数据
 void ImageProjection::findStartEndAngle() {
   // start and end orientation of this cloud
   auto point = _laser_cloud_in->points.front();
@@ -237,13 +243,16 @@ void ImageProjection::findStartEndAngle() {
       _seg_msg.endOrientation - _seg_msg.startOrientation;
 }
 
+//提取出地面数据放入_ground_cloud中
+// _ground_mat中为1也为地面
+// _label_mat 为0则为非地面
 void ImageProjection::groundRemoval() {
   // _ground_mat
   // -1, no valid info to check if ground of not
   //  0, initial value, after validation, means not ground
   //  1, ground
   for (size_t j = 0; j < _horizontal_scans; ++j) {
-    for (size_t i = 0; i < _ground_scan_index; ++i) {           // 仅遍历_ground_scan_index
+    for (size_t i = 0; i < _ground_scan_index; ++i) {           // 仅遍历_ground_scan_index，即水平以下的8跟扫描线
       size_t lowerInd = j + (i)*_horizontal_scans;
       size_t upperInd = j + (i + 1) * _horizontal_scans;
 
@@ -331,6 +340,10 @@ void ImageProjection::groundRemoval() {
   //
 }
 
+// 非地面的有效点云分类
+// _label_mat 初始为0 非地面有效点云
+// _label_mat 初始为-1 则无需考虑
+// 分类后 _label_mat中为分类label标志
 void ImageProjection::cloudSegmentation() {
   // segmentation process ， 仅处理未被分类的数据，即标记0的点云， 完成分类获取_label_mat
   for (size_t i = 0; i < _vertical_scans; ++i)
