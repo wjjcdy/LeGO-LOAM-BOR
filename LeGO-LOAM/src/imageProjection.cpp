@@ -226,10 +226,15 @@ void ImageProjection::projectPointCloud() {
 // 查找整个点云数据起始角度和终止角度
 // 应该是查找整个点云的起始和终止角度，或者说激光雷达开始扫描和结束的水平方向角度
 // 其目的是可以识别任何型号的3d雷达，而非直接原始雷达本身数据
+// ??? 有点不太懂的是，原始点云均是相对于激光雷达为原点坐标。理论上其起始扫描角度和终止扫描角度应该是雷达参数决定。
+// 将查资料可得出是因为vlp激光雷达驱动导致的，和2d雷达不一样，雷达输出距离和对应的角度，故角度并非参数推算出来，而是直接获取的
+// 由于测量的时序问题，其不能保证每次的起点和终点都是确定的，所以较为复杂和难懂
+// 其目的应该是可不关心雷达型号和参数，自行获取。
+// 但是不知为何需要将起始和终止角度全部加个负号（即镜像），猜测估计和雷达旋转方向有关。大多数逆时针旋转，估计如此可改为顺时针。
 void ImageProjection::findStartEndAngle() {
   // start and end orientation of this cloud
   auto point = _laser_cloud_in->points.front();
-  _seg_msg.startOrientation = -std::atan2(point.y, point.x);                // ??? 起始角度
+  _seg_msg.startOrientation = -std::atan2(point.y, point.x);                // ??? 根据点云计算激光雷达起始扫描角度
 
   point = _laser_cloud_in->points.back();
   _seg_msg.endOrientation = -std::atan2(point.y, point.x) + 2 * M_PI;       // ??? 终止角度 + 360 
@@ -358,11 +363,11 @@ void ImageProjection::cloudSegmentation() {
     for (size_t j = 0; j < _horizontal_scans; ++j) {
       if (_label_mat(i, j) > 0 || _ground_mat(i, j) == 1) {    // 标记过和地面上的数据，都需要判断
         // outliers that will not be used for optimization (always continue)
-        if (_label_mat(i, j) == 999999) {                      // 没有被分类的值，直接忽略，不计入用于激光里程计点云
-          if (i > _ground_scan_index && j % 5 == 0) {          // 但是垂直索引如果高于地面索引的，每隔5个点放入_outlier_cloud点云
+        if (_label_mat(i, j) == 999999) {                      // 无用的类处理（即类聚点数过少的估计点云簇）
+          if (i > _ground_scan_index && j % 5 == 0) {          // 但是垂直索引如果高于地面索引的（即非地面上的点），每隔5个点（降采样）放入_outlier_cloud点云
             _outlier_cloud->push_back(
                 _full_cloud->points[j + i * _horizontal_scans]);
-            continue;
+            continue;                                          // 小点云簇降采样放入_outlier_cloud中
           } else {
             continue;
           }
@@ -380,7 +385,7 @@ void ImageProjection::cloudSegmentation() {
         // save range info
         _seg_msg.segmentedCloudRange[sizeOfSegCloud] =         //记录距离
             _range_mat(i, j);
-        // save seg cloud                                      //记录点云
+        // save seg cloud                                      //记录点云降采样后的地面及其有效分类的点云
         _segmented_cloud->push_back(_full_cloud->points[j + i * _horizontal_scans]);
         // size of seg cloud
         ++sizeOfSegCloud;
